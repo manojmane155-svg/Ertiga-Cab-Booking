@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ertiga Online Cab Booking | MH12 TV 1292 | Manoj Mane</title>
+  
+  <!-- Leaflet CSS for Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <!-- App Stylesheet -->
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="brand-section">
+      <div class="brand-icon"><i class="fa-solid fa-car-side"></i></div>
+      <div>
+        <div class="brand-title">Ertiga Cab Booking</div>
+        <div class="brand-subtitle">
+          <span>Maruti Suzuki Ertiga</span>
+          <span class="car-badge">MH12 TV 1292</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-links">
+      <div id="cabAvailabilityBadge" class="status-pill">
+        <span class="status-dot"></span>
+        <span id="cabStatusText">Checking Cab...</span>
+      </div>
+
+      <!-- Unified in-page tab triggers -->
+      <button class="nav-link" onclick="switchRightTab('map')" id="navTabMap">
+        <i class="fa-solid fa-map-location-dot"></i> Route Map
+      </button>
+
+      <button class="nav-link" onclick="switchRightTab('rides')" id="navTabRides">
+        <i class="fa-solid fa-receipt"></i> My Rides & Cancel
+      </button>
+      
+      <button class="driver-portal-btn" onclick="switchRightTab('driver')" id="navTabDriver">
+        <i class="fa-solid fa-id-card"></i> Driver Console (Manoj Mane)
+      </button>
+
+      <div id="userProfileNav">
+        <button id="loginNavBtn" class="btn-secondary" onclick="openLoginModal()">
+          <i class="fa-solid fa-user-lock"></i> Login with OTP
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Unified Layout (All Details in One Page) -->
+  <main class="main-container">
+
+    <!-- Left Booking Form Panel -->
+    <section class="booking-panel">
+      
+      <!-- Cab Showcase Card -->
+      <div class="cab-card">
+        <div class="cab-header">
+          <div>
+            <div class="cab-title">
+              Maruti Suzuki Ertiga
+              <span class="cab-reg">MH12 TV 1292</span>
+            </div>
+            <div class="driver-info-line">
+              <div class="driver-avatar"><i class="fa-solid fa-user-tie"></i></div>
+              <div>
+                <strong>Manoj Mane</strong> (Driver & Owner)
+                <div style="font-size:0.75rem; color:#9ca3af;">
+                  ⭐ 4.9 Rating • 480+ Trips • +91 9975222099
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="rate-badge">
+            ₹15 / KM
+          </div>
+        </div>
+
+        <div class="cab-features">
+          <span class="feature-tag"><i class="fa-solid fa-users"></i> 6+1 Seater</span>
+          <span class="feature-tag"><i class="fa-solid fa-snowflake"></i> AC Climate Control</span>
+          <span class="feature-tag"><i class="fa-solid fa-suitcase"></i> Large Boot Space</span>
+          <span class="feature-tag"><i class="fa-solid fa-shield-halved"></i> Sanitized & Safe</span>
+        </div>
+      </div>
+
+      <!-- Step 1: Passenger Info -->
+      <div class="input-group" id="passengerInfoSection">
+        <div class="section-title"><i class="fa-solid fa-user"></i> 1. Passenger Details</div>
+        <div style="display:flex; gap:10px;">
+          <input type="text" id="passengerName" class="input-field" placeholder="Full Name (e.g. Rahul Sharma)" value="">
+          <input type="tel" id="passengerMobile" class="input-field" placeholder="10-digit Mobile" maxlength="10" value="">
+        </div>
+        <div id="loginPromptHint" style="font-size:0.75rem; color:#6b7280; margin-top:4px;">
+          💡 You can also <a href="javascript:void(0)" onclick="openLoginModal()" style="color:#10b981; font-weight:600;">Login with Mobile & OTP</a> for 1-click booking.
+        </div>
+      </div>
+
+      <!-- Step 2: Route Selection -->
+      <div class="input-group">
+        <div class="section-title"><i class="fa-solid fa-route"></i> 2. Select Source & Destination</div>
+        
+        <div class="loc-selector">
+          <div class="loc-item">
+            <div class="loc-pin pickup"></div>
+            <div style="flex:1;">
+              <label class="input-label">Pick up Point (Source)</label>
+              <input type="text" id="pickupInput" list="landmarkList" class="input-field" placeholder="Enter or select pickup point" value="Pune Railway Station">
+            </div>
+          </div>
+
+          <div class="loc-item">
+            <div class="loc-pin drop"></div>
+            <div style="flex:1;">
+              <label class="input-label">Drop Point (Destination)</label>
+              <input type="text" id="dropInput" list="landmarkList" class="input-field" placeholder="Enter or select destination" value="Pune Airport (PNQ), Lohegaon">
+            </div>
+          </div>
+
+          <datalist id="landmarkList">
+            {% for name, coords in landmarks.items() %}
+            <option value="{{ name }}"></option>
+            {% endfor %}
+          </datalist>
+        </div>
+
+        <button type="button" class="btn-secondary" onclick="recalculateRoute()" style="margin-top:6px;">
+          <i class="fa-solid fa-arrows-rotate"></i> Update Route & Distance
+        </button>
+      </div>
+
+      <!-- Step 3: Fare & Distance Calculation -->
+      <div class="input-group">
+        <div class="section-title"><i class="fa-solid fa-calculator"></i> 3. Distance & Cab Rent</div>
+        
+        <div class="fare-box">
+          <div class="fare-rate-info">
+            <i class="fa-solid fa-tag"></i> Standard Cab Rent: <strong>₹15 per kilometer</strong>
+          </div>
+          
+          <div class="fare-row">
+            <span>Total Distance:</span>
+            <span id="displayDistance" style="font-weight:700; color:#111827;">Calculating...</span>
+          </div>
+
+          <div class="fare-row">
+            <span>Estimated Duration:</span>
+            <span id="displayDuration" style="font-weight:600;">Calculating...</span>
+          </div>
+
+          <div class="fare-row">
+            <span>Rate Formula:</span>
+            <span id="displayFormula">Distance × ₹15</span>
+          </div>
+
+          <div class="fare-total">
+            <span>Total Fare Amount:</span>
+            <span id="displayTotalFare" style="color:#15803d;">₹0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: Schedule (Date & Time Slot) -->
+      <div class="input-group">
+        <div class="section-title"><i class="fa-solid fa-calendar-days"></i> 4. Date & Time Slot</div>
+        <div style="display:flex; gap:10px;">
+          <div style="flex:1;">
+            <label class="input-label">Pickup Date</label>
+            <input type="date" id="pickupDate" class="input-field">
+          </div>
+          <div style="flex:1;">
+            <label class="input-label">Time Slot</label>
+            <select id="pickupTimeSlot" class="input-field">
+              <option value="06:00 AM - 07:00 AM">06:00 AM - 07:00 AM (Early Morning)</option>
+              <option value="07:00 AM - 08:00 AM">07:00 AM - 08:00 AM</option>
+              <option value="08:00 AM - 09:00 AM">08:00 AM - 09:00 AM (Peak Morning)</option>
+              <option value="09:00 AM - 10:00 AM">09:00 AM - 10:00 AM</option>
+              <option value="10:00 AM - 11:00 AM">10:00 AM - 11:00 AM</option>
+              <option value="11:00 AM - 12:00 PM">11:00 AM - 12:00 PM</option>
+              <option value="12:00 PM - 02:00 PM">12:00 PM - 02:00 PM (Afternoon)</option>
+              <option value="02:00 PM - 04:00 PM">02:00 PM - 04:00 PM</option>
+              <option value="04:00 PM - 06:00 PM">04:00 PM - 06:00 PM (Evening)</option>
+              <option value="06:00 PM - 08:00 PM">06:00 PM - 08:00 PM (Peak Evening)</option>
+              <option value="08:00 PM - 10:00 PM">08:00 PM - 10:00 PM (Night)</option>
+              <option value="10:00 PM - 12:00 AM">10:00 PM - 12:00 AM (Late Night)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 5: Payment Method Selection -->
+      <div class="input-group">
+        <div class="section-title"><i class="fa-solid fa-wallet"></i> 5. Select Payment Mode</div>
+        <div class="payment-grid">
+          <div class="payment-option selected" data-method="UPI" onclick="selectPaymentMethod('UPI')">
+            <div class="payment-icon" style="color:#0284c7;"><i class="fa-brands fa-google-pay"></i> / <i class="fa-solid fa-qrcode"></i></div>
+            <div class="payment-name">UPI Payment</div>
+            <div class="payment-desc">GPay, PhonePe, Paytm QR</div>
+          </div>
+
+          <div class="payment-option" data-method="Debit Card" onclick="selectPaymentMethod('Debit Card')">
+            <div class="payment-icon" style="color:#4f46e5;"><i class="fa-solid fa-credit-card"></i></div>
+            <div class="payment-name">Debit Card</div>
+            <div class="payment-desc">Visa, RuPay, MasterCard</div>
+          </div>
+
+          <div class="payment-option" data-method="Credit Card" onclick="selectPaymentMethod('Credit Card')">
+            <div class="payment-icon" style="color:#9333ea;"><i class="fa-solid fa-credit-card"></i></div>
+            <div class="payment-name">Credit Card</div>
+            <div class="payment-desc">All major credit cards</div>
+          </div>
+
+          <div class="payment-option" data-method="COD" onclick="selectPaymentMethod('COD')">
+            <div class="payment-icon" style="color:#16a34a;"><i class="fa-solid fa-money-bill-wave"></i></div>
+            <div class="payment-name">Cash on Delivery</div>
+            <div class="payment-desc">Pay directly in cab</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Book Now Button -->
+      <button id="bookNowBtn" class="btn-primary" onclick="proceedToBooking()">
+        <i class="fa-solid fa-circle-check"></i> Book Ertiga Cab Now
+      </button>
+
+      <div style="font-size:0.75rem; text-align:center; color:#9ca3af; margin-top:8px;">
+        Instant notification will be sent to owner <strong>Manoj Mane (+91 9975222099)</strong>
+      </div>
+
+    </section>
+
+    <!-- Right Unified Content Panel (All Details in One Page + Manoj's Photo) -->
+    <section class="right-content-panel">
+      
+      <!-- HERO SHOWCASE: Manoj's Real Photo with Ertiga MH12 TV 1292 -->
+      <div class="owner-profile-hero">
+        <div class="owner-photo-container">
+          <img src="/static/images/manoj_ertiga.jpg" alt="Manoj Mane with Ertiga MH12 TV 1292" class="owner-photo-img">
+          <div class="owner-verified-badge" title="Verified Cab Owner">
+            <i class="fa-solid fa-check"></i>
+          </div>
+        </div>
+
+        <div class="owner-details">
+          <div class="owner-header-line">
+            <div class="owner-name-title">
+              Manoj Mane
+              <span class="owner-reg-tag">MH12 TV 1292</span>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <span style="background:#15803d; color:#fff; font-size:0.8rem; font-weight:700; padding:4px 10px; border-radius:12px;">
+                <i class="fa-solid fa-indian-rupee-sign"></i> 15 / KM
+              </span>
+              <span style="background:#2563eb; color:#fff; font-size:0.8rem; font-weight:700; padding:4px 10px; border-radius:12px;">
+                ⭐ 4.9 Rating
+              </span>
+            </div>
+          </div>
+
+          <div style="font-size:0.9rem; color:#f3f4f6; font-weight:600;">
+            Owner & Driver • Maruti Suzuki Ertiga (Comfort 6+1 Seater AC)
+          </div>
+
+          <div class="owner-contact-row">
+            <span><i class="fa-solid fa-phone" style="color:#38bdf8;"></i> +91 9975222099</span>
+            <span><i class="fa-solid fa-envelope" style="color:#fbbf24;"></i> manojmane155@gmail.com</span>
+            <a href="tel:+919975222099"><i class="fa-solid fa-phone-volume"></i> Call Manoj</a>
+            <a href="https://wa.me/919975222099?text=Hello%20Manoj,%20I%20want%20to%20inquire%20about%20booking%20your%20Ertiga%20cab%20MH12%20TV%201292" target="_blank">
+              <i class="fa-brands fa-whatsapp"></i> WhatsApp
+            </a>
+          </div>
+
+          <div class="owner-features-chips">
+            <span class="owner-chip"><i class="fa-solid fa-users"></i> 6+1 Passengers</span>
+            <span class="owner-chip"><i class="fa-solid fa-snowflake"></i> Chilled Dual AC</span>
+            <span class="owner-chip"><i class="fa-solid fa-music"></i> Premium Sound System</span>
+            <span class="owner-chip"><i class="fa-solid fa-suitcase-rolling"></i> Huge Luggage Space</span>
+            <span class="owner-chip"><i class="fa-solid fa-shield-heart"></i> Daily Sanitized</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dashboard View Navigation Tabs Bar -->
+      <div class="dashboard-tabs">
+        <button class="dash-tab-btn active" id="tabBtnMap" onclick="switchRightTab('map')">
+          <i class="fa-solid fa-map-location-dot"></i> 1. Live Route Map
+        </button>
+        <button class="dash-tab-btn" id="tabBtnRides" onclick="switchRightTab('rides')">
+          <i class="fa-solid fa-receipt"></i> 2. My Rides & Cancellation
+          <span class="tab-badge" id="myRidesCountBadge">0</span>
+        </button>
+        <button class="dash-tab-btn" id="tabBtnDriver" onclick="switchRightTab('driver')">
+          <i class="fa-solid fa-id-badge"></i> 3. Driver Console (Manoj Mane)
+          <span class="tab-badge" id="driverLiveAlertBadge" style="background:#ef4444; display:none;">NEW</span>
+        </button>
+      </div>
+
+      <!-- Tab Content Views Container -->
+      <div class="tab-content-container">
+
+        <!-- TAB 1: Live Interactive Route Map -->
+        <div class="tab-view active" id="viewMap">
+          <div class="map-card-wrapper">
+            <div style="padding:10px 16px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; font-size:0.85rem;">
+              <span><i class="fa-solid fa-location-crosshairs" style="color:#10b981;"></i> <strong>Live Route Preview:</strong> Drag pins or select points on left</span>
+              <span style="color:#6b7280;"><i class="fa-solid fa-road"></i> Rate: <strong>₹15/km</strong></span>
+            </div>
+            <div id="map"></div>
+          </div>
+        </div>
+
+        <!-- TAB 2: My Rides & Cancellation View (Embedded All-in-One) -->
+        <div class="tab-view" id="viewRides">
+          <div class="embedded-card-wrapper">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+              <div>
+                <h3 style="font-size:1.25rem; font-weight:800; color:#111827;">My Cab Bookings & Cancellation</h3>
+                <p style="color:#6b7280; font-size:0.82rem;">Vehicle: Maruti Suzuki Ertiga (MH12 TV 1292) • Driver: Manoj Mane</p>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <input type="tel" id="pageSearchMobileInput" class="input-field" placeholder="Search by Mobile" style="width:160px; padding:8px 12px; font-size:0.85rem;" maxlength="10">
+                <button class="btn-primary" onclick="loadPageBookings()" style="padding:8px 14px; font-size:0.85rem; width:auto;">
+                  <i class="fa-solid fa-filter"></i> Search
+                </button>
+              </div>
+            </div>
+
+            <!-- List of Passenger Bookings -->
+            <div id="pageBookingsContainer" style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
+              <div style="text-align:center; padding:30px; color:#6b7280;">Loading bookings...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: Driver & Owner Console (Manoj Mane) View (Embedded All-in-One) -->
+        <div class="tab-view" id="viewDriver">
+          <div class="embedded-card-wrapper">
+            
+            <!-- Driver Status Header & Toggle -->
+            <div style="background:#09090b; color:#fff; padding:16px 20px; border-radius:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+              <div>
+                <h3 style="font-size:1.15rem; font-weight:800; display:flex; align-items:center; gap:8px;">
+                  <i class="fa-solid fa-crown" style="color:#f59e0b;"></i> Driver & Owner Dashboard (Manoj Mane)
+                </h3>
+                <div style="font-size:0.8rem; color:#9ca3af; margin-top:2px;">
+                  Vehicle: MH12 TV 1292 • Phone: +91 9975222099 • Rate: ₹15/km
+                </div>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span id="pageDriverAvailabilityLabel" style="font-weight:700; font-size:0.88rem; color:#34d399;">ONLINE & READY</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="pageOnlineToggle" checked onchange="toggleCabAvailability(this.checked)">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Driver Stats -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px;">
+              <div style="background:#f0fdf4; padding:14px; border-radius:10px; border:1px solid #bbf7d0;">
+                <div style="font-size:0.75rem; color:#15803d; font-weight:700;">TOTAL BOOKINGS</div>
+                <div id="pageStatBookings" style="font-size:1.4rem; font-weight:800; color:#111827;">0</div>
+              </div>
+              <div style="background:#eff6ff; padding:14px; border-radius:10px; border:1px solid #bfdbfe;">
+                <div style="font-size:0.75rem; color:#1d4ed8; font-weight:700;">TOTAL DISTANCE</div>
+                <div id="pageStatDistance" style="font-size:1.4rem; font-weight:800; color:#111827;">0 KM</div>
+              </div>
+              <div style="background:#fefce8; padding:14px; border-radius:10px; border:1px solid #fef08a;">
+                <div style="font-size:0.75rem; color:#a16207; font-weight:700;">TOTAL EARNINGS (₹15/KM)</div>
+                <div id="pageStatEarnings" style="font-size:1.4rem; font-weight:800; color:#15803d;">₹0</div>
+              </div>
+              <div style="background:#fdf2f8; padding:14px; border-radius:10px; border:1px solid #fbcfe8;">
+                <div style="font-size:0.75rem; color:#be185d; font-weight:700;">DRIVER RATING</div>
+                <div style="font-size:1.4rem; font-weight:800; color:#111827;">4.9 ★</div>
+              </div>
+            </div>
+
+            <!-- Live Booking Alert Banner (Audio + Visual) -->
+            <div id="pageLatestAlertBanner" class="live-alert-banner" style="display:none;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                  <span style="background:#10b981; color:#fff; font-size:0.75rem; font-weight:800; padding:3px 10px; border-radius:20px;">
+                    🚨 NEW BOOKING ALERT DISPATCHED
+                  </span>
+                  <h4 id="pageAlertTitle" style="font-size:1.1rem; font-weight:800; color:#065f46; margin:6px 0 2px 0;"></h4>
+                  <div id="pageAlertTimestamp" style="font-size:0.75rem; color:#047857;"></div>
+                </div>
+                <button onclick="dismissPageAlert()" style="background:none; border:none; color:#047857; font-size:1.3rem; cursor:pointer;">&times;</button>
+              </div>
+
+              <div id="pageAlertBodyContent" style="background:#ffffff; border-radius:8px; padding:12px; margin-top:10px; font-family:monospace; white-space:pre-wrap; font-size:0.82rem; color:#1e293b; border:1px solid #a7f3d0;">
+              </div>
+
+              <div id="pageAlertActionButtons" style="display:flex; gap:10px; margin-top:10px;">
+              </div>
+            </div>
+
+            <!-- Driver Bookings Table -->
+            <div style="overflow-x:auto; margin-top:8px;">
+              <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                <thead>
+                  <tr style="border-bottom:2px solid #e5e7eb; color:#4b5563; font-size:0.75rem; text-transform:uppercase;">
+                    <th style="padding:8px;">ID</th>
+                    <th style="padding:8px;">Passenger</th>
+                    <th style="padding:8px;">Pickup & Drop</th>
+                    <th style="padding:8px;">Schedule</th>
+                    <th style="padding:8px;">Fare (₹15/km)</th>
+                    <th style="padding:8px;">Status</th>
+                    <th style="padding:8px; text-align:right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="pageDriverBookingsTbody">
+                  <tr><td colspan="7" style="text-align:center; padding:20px; color:#9ca3af;">Loading bookings...</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- MODAL: OTP Login -->
+  <div id="loginModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title"><i class="fa-solid fa-shield-halved" style="color:#10b981;"></i> Passenger Mobile Login</div>
+        <button class="modal-close" onclick="closeLoginModal()">&times;</button>
+      </div>
+
+      <div id="otpStep1">
+        <p style="font-size:0.88rem; color:#4b5563;">
+          Enter your mobile number to receive a verification OTP.
+        </p>
+        <div class="input-group" style="margin-top:14px;">
+          <label class="input-label">Your Name</label>
+          <input type="text" id="modalUserName" class="input-field" placeholder="Your Name (e.g. Manoj Mane)">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Mobile Number</label>
+          <div style="display:flex; align-items:center; border:1.5px solid var(--border-color); border-radius:var(--radius-md); overflow:hidden;">
+            <span style="background:#f3f4f6; padding:12px 14px; font-weight:600; color:#374151; font-size:0.9rem;">+91</span>
+            <input type="tel" id="modalUserMobile" style="border:none; outline:none; padding:12px; width:100%; font-size:0.95rem;" placeholder="9975222099" maxlength="10">
+          </div>
+        </div>
+        <button class="btn-primary" onclick="requestOtp()">
+          <i class="fa-solid fa-paper-plane"></i> Send OTP via SMS
+        </button>
+      </div>
+
+      <div id="otpStep2" style="display:none;">
+        <p style="font-size:0.88rem; color:#4b5563;">
+          Enter the 6-digit OTP code sent to <strong id="otpSentMobileText">+91 XXXXXXXX</strong>
+        </p>
+        
+        <div class="demo-otp-badge" id="demoOtpAlert">
+          🔑 <strong>Demo OTP Code:</strong> <span id="demoOtpNumber">123456</span>
+          <br><a href="javascript:void(0)" onclick="autoFillOtp()" style="color:#b45309; font-weight:700; text-decoration:underline;">Click here to Auto-Fill OTP</a>
+        </div>
+
+        <div class="otp-box-group">
+          <input type="text" class="otp-input" maxlength="1" id="otp1" oninput="moveOtpFocus(this, 'otp2')">
+          <input type="text" class="otp-input" maxlength="1" id="otp2" oninput="moveOtpFocus(this, 'otp3')">
+          <input type="text" class="otp-input" maxlength="1" id="otp3" oninput="moveOtpFocus(this, 'otp4')">
+          <input type="text" class="otp-input" maxlength="1" id="otp4" oninput="moveOtpFocus(this, 'otp5')">
+          <input type="text" class="otp-input" maxlength="1" id="otp5" oninput="moveOtpFocus(this, 'otp6')">
+          <input type="text" class="otp-input" maxlength="1" id="otp6" oninput="moveOtpFocus(this, null)">
+        </div>
+
+        <button class="btn-primary" onclick="verifyOtpCode()">
+          <i class="fa-solid fa-check-double"></i> Verify & Login
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Booking Confirmation & Driver Alert Dispatch -->
+  <div id="confirmModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-card" style="max-width:560px;">
+      <div class="modal-header">
+        <div class="modal-title" style="color:#10b981;">
+          <i class="fa-solid fa-circle-check"></i> Cab Booked Successfully!
+        </div>
+        <button class="modal-close" onclick="closeConfirmModal()">&times;</button>
+      </div>
+
+      <div class="ticket-card" id="bookingReceipt">
+        <!-- Dynamically rendered ticket -->
+      </div>
+
+      <div class="driver-alert-box">
+        <div style="font-weight:700; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+          <i class="fa-solid fa-bell"></i> Driver & Owner Alert Dispatched
+        </div>
+        <p style="font-size:0.8rem; margin-bottom:8px;">
+          A text message alert has been sent to <strong>Manoj Mane (+91 9975222099)</strong> and notification email sent to <strong>manojmane155@gmail.com</strong>.
+        </p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <a id="whatsappShareBtn" href="#" target="_blank" class="btn-primary" style="background:#25d366; text-decoration:none; font-size:0.85rem; padding:8px 14px; flex:1;">
+            <i class="fa-brands fa-whatsapp"></i> Open Alert in WhatsApp
+          </a>
+          <button onclick="closeConfirmModal(); switchRightTab('rides');" class="btn-secondary" style="font-size:0.85rem; padding:8px 14px;">
+            <i class="fa-solid fa-list-check"></i> View in My Rides
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: In-Page Booking Cancellation -->
+  <div id="pageCancelModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title" style="color:var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> Cancel Booking</div>
+        <button class="modal-close" onclick="closePageCancelModal()">&times;</button>
+      </div>
+
+      <p style="font-size:0.9rem; color:#4b5563;">
+        Are you sure you want to cancel booking <strong id="pageCancelModalRef">ERT-XXXXXX</strong>?
+      </p>
+
+      <div class="input-group">
+        <label class="input-label">Select Reason for Cancellation</label>
+        <select id="pageCancelReasonSelect" class="input-field">
+          <option value="Change of plans">Change of travel plans</option>
+          <option value="Booked another cab">Booked another cab</option>
+          <option value="Incorrect date or time selected">Incorrect date or time selected</option>
+          <option value="Personal emergency">Personal emergency</option>
+          <option value="Other reason">Other reason</option>
+        </select>
+      </div>
+
+      <div style="display:flex; gap:10px; justify-content:flex-end;">
+        <button class="btn-secondary" onclick="closePageCancelModal()">Keep Booking</button>
+        <button class="btn-danger" onclick="confirmPageCancellation()">Yes, Cancel Ride</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- App JS -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

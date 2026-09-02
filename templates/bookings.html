@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Rides & Bookings | Ertiga Cab MH12 TV 1292</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    .booking-card {
+      background: #ffffff;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .booking-card:hover {
+      box-shadow: var(--shadow-md);
+    }
+    .booking-status-badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .status-confirmed { background: #dcfce7; color: #15803d; }
+    .status-completed { background: #e0f2fe; color: #0284c7; }
+    .status-cancelled { background: #fee2e2; color: #b91c1c; }
+    .status-assigned { background: #fef3c7; color: #b45309; }
+  </style>
+</head>
+<body style="background:#f9fafb;">
+
+  <!-- Top Navigation -->
+  <header class="navbar">
+    <div class="brand-section">
+      <div class="brand-icon"><i class="fa-solid fa-car-side"></i></div>
+      <div>
+        <div class="brand-title">Ertiga Cab Booking</div>
+        <div class="brand-subtitle">
+          <span>Maruti Suzuki Ertiga</span>
+          <span class="car-badge">MH12 TV 1292</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-links">
+      <a href="/" class="nav-link">
+        <i class="fa-solid fa-arrow-left"></i> Back to Booking
+      </a>
+      <a href="/driver" class="driver-portal-btn">
+        <i class="fa-solid fa-id-card"></i> Driver Portal
+      </a>
+    </div>
+  </header>
+
+  <div style="max-width: 800px; margin: 30px auto; padding: 0 16px; width: 100%;">
+    
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; flex-wrap:wrap; gap:12px;">
+      <div>
+        <h1 style="font-size: 1.6rem; font-weight: 800; color: #111827;">My Cab Bookings</h1>
+        <p style="color: #6b7280; font-size: 0.88rem;">
+          Vehicle: <strong>Maruti Suzuki Ertiga (MH12 TV 1292)</strong> • Driver: <strong>Manoj Mane</strong>
+        </p>
+      </div>
+
+      <!-- Mobile Search filter -->
+      <div style="display:flex; gap:8px;">
+        <input type="tel" id="searchMobileInput" class="input-field" placeholder="Enter Mobile No." style="width:160px; padding:8px 12px; font-size:0.85rem;" maxlength="10">
+        <button class="btn-primary" onclick="loadBookings()" style="padding:8px 14px; font-size:0.85rem;">
+          <i class="fa-solid fa-filter"></i> Search
+        </button>
+      </div>
+    </div>
+
+    <div id="bookingListContainer">
+      <div style="text-align:center; padding: 50px 0; color:#6b7280;">
+        <i class="fa-solid fa-circle-notch fa-spin fa-2x"></i>
+        <p style="margin-top:10px;">Loading your cab bookings...</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Cancel Modal -->
+  <div id="cancelModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title" style="color:var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> Cancel Booking</div>
+        <button class="modal-close" onclick="closeCancelModal()">&times;</button>
+      </div>
+
+      <p style="font-size:0.9rem; color:#4b5563;">
+        Are you sure you want to cancel booking <strong id="cancelModalRef">ERT-XXXXXX</strong>?
+      </p>
+
+      <div class="input-group">
+        <label class="input-label">Select Reason for Cancellation</label>
+        <select id="cancelReasonSelect" class="input-field">
+          <option value="Change of plans">Change of travel plans</option>
+          <option value="Booked another cab">Booked another cab</option>
+          <option value="Incorrect date or time selected">Incorrect date or time selected</option>
+          <option value="Personal emergency">Personal emergency</option>
+          <option value="Other reason">Other reason</option>
+        </select>
+      </div>
+
+      <div style="display:flex; gap:10px; justify-content:flex-end;">
+        <button class="btn-secondary" onclick="closeCancelModal()">Keep Booking</button>
+        <button class="btn-danger" onclick="confirmCancellation()">Yes, Cancel Ride</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentCancelRef = null;
+
+    async function loadBookings() {
+      const container = document.getElementById("bookingListContainer");
+      const searchMobile = document.getElementById("searchMobileInput").value.trim();
+      let url = "/api/user/bookings";
+      if (searchMobile) {
+        url += "?mobile=" + encodeURIComponent(searchMobile);
+      }
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (!data.bookings || data.bookings.length === 0) {
+          container.innerHTML = `
+            <div style="text-align:center; padding: 60px 20px; background:#fff; border-radius:12px; border:1px dashed #cbd5e1;">
+              <i class="fa-solid fa-car-rear fa-3x" style="color:#9ca3af; margin-bottom:12px;"></i>
+              <h3 style="color:#374151;">No Bookings Found</h3>
+              <p style="color:#6b7280; font-size:0.9rem; margin-top:4px;">You haven't booked Manoj Mane's Ertiga yet or no rides match this number.</p>
+              <a href="/" class="btn-primary" style="display:inline-flex; width:auto; margin-top:16px; text-decoration:none; padding:10px 20px;">
+                <i class="fa-solid fa-plus"></i> Book a Cab Now
+              </a>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = data.bookings.map(b => {
+          const statusClass = b.booking_status === 'Confirmed' ? 'status-confirmed' :
+                              b.booking_status === 'Cancelled' ? 'status-cancelled' :
+                              b.booking_status === 'Completed' ? 'status-completed' : 'status-assigned';
+          
+          const isCancellable = b.booking_status === 'Confirmed' || b.booking_status === 'Driver Assigned';
+
+          return `
+            <div class="booking-card">
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f3f4f6; padding-bottom:10px;">
+                <div>
+                  <span style="font-weight:800; font-size:1.05rem; color:#111827;">${b.booking_ref}</span>
+                  <span style="font-size:0.75rem; color:#6b7280; margin-left:8px;">Booked on ${b.created_at}</span>
+                </div>
+                <span class="booking-status-badge ${statusClass}">${b.booking_status}</span>
+              </div>
+
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; font-size:0.88rem;">
+                <div>
+                  <div style="color:#6b7280; font-size:0.75rem;"><i class="fa-solid fa-circle" style="color:#10b981; font-size:8px;"></i> PICKUP</div>
+                  <strong style="color:#111827;">${b.pickup_location}</strong>
+                </div>
+                <div>
+                  <div style="color:#6b7280; font-size:0.75rem;"><i class="fa-solid fa-location-dot" style="color:#ef4444; font-size:10px;"></i> DROP</div>
+                  <strong style="color:#111827;">${b.drop_location}</strong>
+                </div>
+                <div>
+                  <div style="color:#6b7280; font-size:0.75rem;">📅 ONBOARD SCHEDULE</div>
+                  <strong>${b.onboard_date} (${b.onboard_time})</strong>
+                </div>
+                <div>
+                  <div style="color:#6b7280; font-size:0.75rem;">🚘 VEHICLE & DRIVER</div>
+                  <strong>Maruti Ertiga (MH12 TV 1292)</strong>
+                  <div style="font-size:0.75rem; color:#4b5563;">Manoj Mane (+91 9975222099)</div>
+                </div>
+              </div>
+
+              <div style="background:#f8fafc; border-radius:8px; padding:12px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <div style="font-size:0.8rem; color:#6b7280;">Distance: <strong>${b.distance_km} KM</strong> • Rate: <strong>₹${b.rate_per_km}/KM</strong></div>
+                  <div style="font-size:0.8rem; color:#6b7280;">Payment: <strong>${b.payment_method}</strong> (${b.payment_status})</div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-size:0.75rem; color:#6b7280;">Total Fare</div>
+                  <div style="font-size:1.3rem; font-weight:800; color:#15803d;">₹${b.fare_amount.toLocaleString('en-IN')}</div>
+                </div>
+              </div>
+
+              ${b.booking_status === 'Cancelled' ? `
+                <div style="background:#fef2f2; color:#991b1b; padding:8px 12px; border-radius:6px; font-size:0.8rem;">
+                  <i class="fa-solid fa-circle-info"></i> Cancelled on ${b.cancelled_at || 'Recent'}. Reason: <em>${b.cancel_reason || 'Customer request'}</em>
+                </div>
+              ` : ''}
+
+              ${isCancellable ? `
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:4px;">
+                  <button class="btn-danger" onclick="openCancelModal('${b.booking_ref}')">
+                    <i class="fa-solid fa-xmark"></i> Cancel Booking
+                  </button>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        container.innerHTML = `<div style="color:#ef4444; padding:20px; text-align:center;">Failed to load bookings: ${err.message}</div>`;
+      }
+    }
+
+    function openCancelModal(ref) {
+      currentCancelRef = ref;
+      document.getElementById("cancelModalRef").innerText = ref;
+      document.getElementById("cancelModal").style.display = "flex";
+    }
+
+    function closeCancelModal() {
+      document.getElementById("cancelModal").style.display = "none";
+      currentCancelRef = null;
+    }
+
+    async function confirmCancellation() {
+      if (!currentCancelRef) return;
+      const reason = document.getElementById("cancelReasonSelect").value;
+      
+      try {
+        const res = await fetch(`/api/bookings/${currentCancelRef}/cancel`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`Booking ${currentCancelRef} has been cancelled.`);
+          closeCancelModal();
+          loadBookings();
+        } else {
+          alert("Cancellation failed: " + data.message);
+        }
+      } catch (err) {
+        alert("Error during cancellation: " + err.message);
+      }
+    }
+
+    // Auto load bookings on open
+    window.addEventListener("DOMContentLoaded", () => {
+      // Prefill user mobile if available in localStorage
+      const savedMobile = localStorage.getItem("ertiga_user_mobile");
+      if (savedMobile) {
+        document.getElementById("searchMobileInput").value = savedMobile;
+      }
+      loadBookings();
+    });
+  </script>
+</body>
+</html>
