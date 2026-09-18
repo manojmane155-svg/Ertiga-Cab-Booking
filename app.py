@@ -14,7 +14,12 @@ from flask import Flask, render_template, request, jsonify, session
 from database import get_db, init_db
 from notification_service import send_driver_notification, format_booking_alert_message, send_user_otp_sms
 
-app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(
+    __name__,
+    template_folder=os.path.join(BASE_DIR, "templates"),
+    static_folder=os.path.join(BASE_DIR, "static")
+)
 app.secret_key = os.environ.get("SECRET_KEY", "ertiga_cab_secret_key_mh12_tv_1292_manoj")
 
 # Initialize database on startup
@@ -77,6 +82,8 @@ def generate_booking_ref():
 # ----------------- PAGE ROUTES ----------------- #
 
 @app.route("/")
+@app.route("/api/index")
+@app.route("/api/index.py")
 def index():
     return render_template("index.html", landmarks=LANDMARKS)
 
