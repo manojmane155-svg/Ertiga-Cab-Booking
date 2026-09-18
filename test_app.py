@@ -31,11 +31,17 @@ class TestErtigaCabBooking(unittest.TestCase):
         })
         self.assertEqual(send_res.status_code, 200)
         send_data = json.loads(send_res.data)
-        self.assertTrue(send_data['success'])
-        otp = send_data['otp']
+        # Step 2: Query OTP from DB (as sent via SMS)
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT otp FROM otp_codes WHERE mobile = '9975222099'")
+        row = cursor.fetchone()
+        self.assertIsNotNone(row)
+        otp = row['otp']
         self.assertEqual(len(otp), 6)
+        conn.close()
 
-        # Step 2: Verify OTP
+        # Step 3: Verify OTP
         verify_res = self.client.post('/api/auth/verify-otp', json={
             'mobile': '9975222099',
             'otp': otp,

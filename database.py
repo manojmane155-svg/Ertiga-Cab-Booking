@@ -2,15 +2,26 @@ import sqlite3
 import os
 from datetime import datetime
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cab_booking.db")
+# Support Vercel serverless environment (/tmp is writable, root is read-only)
+if os.environ.get("VERCEL") or not os.access(os.path.dirname(os.path.abspath(__file__)), os.W_OK):
+    DB_PATH = "/tmp/cab_booking.db"
+else:
+    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cab_booking.db")
 
 def get_db():
+    need_init = not os.path.exists(DB_PATH)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    if need_init:
+        init_db_conn(conn)
     return conn
 
 def init_db():
     conn = get_db()
+    init_db_conn(conn)
+    conn.close()
+
+def init_db_conn(conn):
     cursor = conn.cursor()
     
     # Driver profile & cab configuration table
@@ -98,7 +109,6 @@ def init_db():
     """)
 
     conn.commit()
-    conn.close()
 
 if __name__ == "__main__":
     init_db()

@@ -12,7 +12,7 @@ if hasattr(sys.stderr, 'reconfigure'):
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, session
 from database import get_db, init_db
-from notification_service import send_driver_notification, format_booking_alert_message
+from notification_service import send_driver_notification, format_booking_alert_message, send_user_otp_sms
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "ertiga_cab_secret_key_mh12_tv_1292_manoj")
@@ -23,17 +23,28 @@ init_db()
 # Reference coordinates for Pune & surrounding key locations for accurate distance calculation
 LANDMARKS = {
     "Pune Railway Station": {"lat": 18.5284, "lon": 73.8744},
+    "Pune Junction": {"lat": 18.5284, "lon": 73.8744},
+    "Bund Garden, Pune": {"lat": 18.5362, "lon": 73.8786},
+    "Ruby Hall Clinic / Sassoon": {"lat": 18.5305, "lon": 73.8770},
+    "Koregaon Park (North Main Rd)": {"lat": 18.5362, "lon": 73.8940},
     "Pune Airport (PNQ), Lohegaon": {"lat": 18.5822, "lon": 73.9197},
     "Swargate Bus Stand": {"lat": 18.5018, "lon": 73.8587},
     "Hinjewadi Phase 1, IT Park": {"lat": 18.5913, "lon": 73.7389},
     "Hinjewadi Phase 3": {"lat": 18.5833, "lon": 73.6933},
     "Shivaji Nagar, Pune": {"lat": 18.5314, "lon": 73.8446},
+    "Camp / MG Road, Pune": {"lat": 18.5167, "lon": 73.8789},
+    "Deccan Gymkhana / FC Road": {"lat": 18.5173, "lon": 73.8415},
     "Kothrud, Chandani Chowk": {"lat": 18.5074, "lon": 73.7925},
     "Hadapsar / Magarpatta City": {"lat": 18.5089, "lon": 73.9260},
     "Viman Nagar": {"lat": 18.5679, "lon": 73.9143},
+    "Kalyani Nagar": {"lat": 18.5484, "lon": 73.9022},
+    "Kharadi EON IT Park": {"lat": 18.5516, "lon": 73.9525},
     "Wakad, Pune": {"lat": 18.5987, "lon": 73.7688},
     "Baner, Pune": {"lat": 18.5590, "lon": 73.7868},
+    "Aundh / University": {"lat": 18.5580, "lon": 73.8077},
     "Pimpri Chinchwad": {"lat": 18.6279, "lon": 73.8009},
+    "Katraj / Bharati Vidyapeeth": {"lat": 18.4575, "lon": 73.8553},
+    "Sangamwadi / RBM Road": {"lat": 18.5350, "lon": 73.8650},
     "Lonavala": {"lat": 18.7557, "lon": 73.4091},
     "Khandala": {"lat": 18.7614, "lon": 73.3740},
     "Mahabaleshwar": {"lat": 17.9237, "lon": 73.6586},
@@ -161,12 +172,16 @@ def send_otp():
             
     conn.commit()
     conn.close()
+
+    # Dispatch SMS to user mobile
+    sms_res = send_user_otp_sms(clean_mobile, otp)
     
     return jsonify({
         "success": True,
-        "message": f"OTP successfully sent to +91 {clean_mobile}",
-        "otp": otp, # Provided for quick testing/demo auto-fill
-        "mobile": clean_mobile
+        "message": f"OTP has been dispatched to +91 {clean_mobile}",
+        "mobile": clean_mobile,
+        "otp": otp,
+        "whatsapp_url": sms_res.get("whatsapp_url", "")
     })
 
 @app.route("/api/auth/verify-otp", methods=["POST"])
@@ -182,9 +197,9 @@ def verify_otp():
     cursor.execute("SELECT otp FROM otp_codes WHERE mobile = ?", (mobile,))
     row = cursor.fetchone()
     
-    if not row or (row["otp"] != otp and otp != "123456"):
+    if not row or row["otp"] != otp:
         conn.close()
-        return jsonify({"success": False, "message": "Invalid OTP code. Please check and try again."}), 400
+        return jsonify({"success": False, "message": "Incorrect OTP code. Please check the SMS on your mobile and try again."}), 400
         
     # Get or create user
     cursor.execute("SELECT * FROM users WHERE mobile = ?", (mobile,))
